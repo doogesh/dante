@@ -5,7 +5,7 @@ Performs Wiener filtering and pure E/B reconstruction on the sphere with complex
 
 **Please cite the paper below if you make use of the code:**  
 "*Wiener filtering and pure E/B decomposition of CMB maps with anisotropic correlated noise*,"  
-Doogesh Kodi Ramanah, Guilhem Lavaux, Benjamin D. Wandelt [arXiv link](https://arxiv.org/abs/1906.10704)
+Doogesh Kodi Ramanah, Guilhem Lavaux, Benjamin D. Wandelt ([arXiv link](https://arxiv.org/abs/1906.10704))
 
 <img src="Dante_cover.png" alt="Drawing" style="width: 1250px;"/>
 
