@@ -26,7 +26,7 @@ Doogesh Kodi Ramanah, Guilhem Lavaux, Benjamin D. Wandelt [arXiv link](https://a
 
 # DANTE dependencies
 
-$ DANTE relies on the following standard `Python` packages and is compatible with both `Python2` and `Python3`:
+DANTE relies on the following standard `Python` packages and is compatible with both `Python2` and `Python3`:
 
 * `healpy`: for spherical harmonic transforms (SHTs)
 * `numba`: for generating efficient parallelized machine/native code for array manipulations on the sphere
