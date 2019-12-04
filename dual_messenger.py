@@ -54,6 +54,11 @@ class DualMessenger(WienerFilter):
     for i in range(d_pix[0].size):
       sigma_IQU[:,i] = np.sqrt(np.diag(self.Cov_N[i,:,:]))
       inv_sigma_IQU[:,i] = 1./sigma_IQU[:,i]
+
+    if self.EB_only:
+      inv_sigma_IQU[0,:] = 0
+
+    for i in range(d_pix[0].size):
       cholesky_matrix[i,:,:] = np.matrix(np.diag(inv_sigma_IQU[:,i]))*np.matrix(self.Cov_N[i,:,:])*np.matrix(np.diag(inv_sigma_IQU[:,i]))
 
     # Here we set all sigma_IQU for all masked pixels to zero, ensuring no contamination of data
@@ -63,13 +68,18 @@ class DualMessenger(WienerFilter):
  
     # Diagonalize Cov_N -> sole purpose: Compute Cov_T (evectors not relevant)
     Cov_N_diag = np.zeros([3, d_pix[0].size])
-    for i in range(d_pix[0].size):
-      Z = self.Cov_N[i,:,:]
-      evalues_Z, _ = np.linalg.eigh(Z)
-      Cov_N_diag[0,i] = evalues_Z[0] 
-      Cov_N_diag[1,i] = evalues_Z[1] 
-      Cov_N_diag[2,i] = evalues_Z[2]
-    alpha = np.min(Cov_N_diag)*.98 # Re-scale T slightly to avoid trouble
+    if not self.EB_only:
+      for i in range(d_pix[0].size):
+        Z = self.Cov_N[i,:,:]
+        evalues_Z, _ = np.linalg.eigh(Z)
+        Cov_N_diag[0,i] = evalues_Z[0] 
+        Cov_N_diag[1,i] = evalues_Z[1] 
+        Cov_N_diag[2,i] = evalues_Z[2]
+    else:
+      for k in range(3):
+        Cov_N_diag[k,:] = self.Cov_N[:,k,k]
+
+    alpha = np.min(Cov_N_diag[np.where(Cov_N_diag!=0)])*.98 # Re-scale T slightly to avoid trouble
 
     self.alpha = alpha 
     self.inv_alpha = 1./alpha
@@ -125,8 +135,13 @@ class DualMessenger(WienerFilter):
       inter_delta_term[1,0] = inter_delta_term[0,1]
       inter_delta_term[2,0] = inter_delta_term[0,2]
       inter_delta_term[2,1] = inter_delta_term[1,2]
-      inv_inter_delta_term = np.linalg.inv(inter_delta_term)
-      inv_N_bar[idx,:,:] = np.matrix(inv_Sigma_Q_dag[idx,:,:])*np.matrix(inv_inter_delta_term)*np.matrix(Q_inv_Sigma[idx,:,:])
+      if self.EB_only:
+        inv_inter_delta_term = np.linalg.inv(inter_delta_term[1:,1:])
+        inv_N_bar[idx,:,:] = 0
+        inv_N_bar[idx,1:,1:] = np.matrix(inv_Sigma_Q_dag[idx,1:,1:])*np.matrix(inv_inter_delta_term)*np.matrix(Q_inv_Sigma[idx,1:,1:])
+      else:
+        inv_inter_delta_term = np.linalg.inv(inter_delta_term)
+        inv_N_bar[idx,:,:] = np.matrix(inv_Sigma_Q_dag[idx,:,:])*np.matrix(inv_inter_delta_term)*np.matrix(Q_inv_Sigma[idx,:,:])
       if self.compute_chi2: 
         inv_delta_diag = np.zeros((3,3))
         inv_delta_diag[0,0] = 1./delta1
@@ -640,7 +655,7 @@ class DualMessenger(WienerFilter):
 ##                     CLASSIC FILTER                     ##
 ############################################################
 
-  def run_classic_filter(self, convergence='norm', precision=10**-4, cooling_step=2.5, l_start=100, relaxed_convergence_threshold=False, store_steps=False, jacobi_correction=False, constrained_realizations=False, compute_chi2=False, compute_residual=False):
+  def run_classic_filter(self, convergence='norm', precision=10**-4, cooling_step=2.5, l_start=100, relaxed_convergence_threshold=False, store_steps=False, jacobi_correction=False, constrained_realizations=False, compute_chi2=False, compute_residual=False, EB_only=False):
     """
     Run the dual messenger algorithm to the given precision
     ***This is the main function that calls all preliminaries & initializes all constant coefficients***
@@ -655,8 +670,26 @@ class DualMessenger(WienerFilter):
     if self.anisotropic_noise:
       raise ValueError("Wrong (classic) filter chosen!")
 
-    _, self.Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", self.lmax)
-    self.diagonalize_Cov_S(self.lmax)
+    self.EB_only = EB_only
+    if EB_only:
+      print(G+"*** E/B only mode activated               ***"+W)
+    else:
+      print(P+"*** E/B only mode deactivated             ***"+W)
+
+    _, self.Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", self.lmax, EB_only)
+    if self.EB_only:
+      Cov_S_diag = np.zeros((self.lmax+1,3))
+      for i in range(3):
+        Cov_S_diag[:,i] = self.Cov_S[:,i,i]
+      self.Cov_S_diag = Cov_S_diag.copy()
+      idx_null1 = np.where(self.Cov_S_diag == 0.)
+      self.inv_S_diag = 1./Cov_S_diag
+      self.inv_S_diag[idx_null1] = 0.
+      self.operator_P = np.zeros((self.lmax+1,3,3))
+      for k in range(3):
+        self.operator_P[:,k,k] = 1.0
+    else:
+      self.diagonalize_Cov_S(self.lmax)
 
     self.jacobi_correction = jacobi_correction
     if self.jacobi_correction:
@@ -720,8 +753,14 @@ class DualMessenger(WienerFilter):
     epsilon_list = []
     state = None # state is s_old, i.e. solution at previous step
     
-    # l_start -> Choice for initial truncation of signal covariance 
-    v_trunk = self.compute_v_trunks(l_start)
+    # l_start -> Choice for initial truncation of signal covariance
+    if self.EB_only:
+      v_trunk_ = self.compute_v_trunks_pure_filter(l_start)
+      v_trunk = np.zeros((3))
+      for i in range(3):
+        v_trunk[i] = v_trunk_[i,i]
+    else:
+      v_trunk = self.compute_v_trunks(l_start)
     '''
     if self.beamed:
       zeta = (self.beam_square*inv_norm_coeff_times_T) + v_trunk

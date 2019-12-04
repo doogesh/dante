@@ -41,7 +41,7 @@ def _extract_beam(lmax, beamname):
   beam[:,2] = beam[:,1]                     # U
   return beam  
 
-def _mock_noise_covariance_generator(npix, noise_amplitude):
+def _mock_noise_covariance_generator(npix, noise_amplitude, EB_only):
   """
   Generates noise according to a given Cov_N, with default noise amplitude being 100 muK
   IMPORTANT: For CR generation, ensure that default value of noise amplitude is consistent with mock map/noise
@@ -53,8 +53,12 @@ def _mock_noise_covariance_generator(npix, noise_amplitude):
   noise_IQU = np.zeros((3, npix)) 
   Cov_N = np.zeros((npix, 3, 3))
   # This will now vary on the grid -> This is how we can implement inhomogeneous noise for IQU maps
-  sigma_IQU = np.zeros((3,npix)) 
-  sigma_IQU[:,:] = noise_amplitude # noise amplitude (per pixel) in muK
+  sigma_IQU = np.zeros((3,npix))
+  if EB_only:
+    sigma_IQU[1:,:] = noise_amplitude # noise amplitude (per pixel) in muK
+  else:
+    sigma_IQU[1:,:] = noise_amplitude # noise amplitude (per pixel) in muK
+
   print("### Noise amplitude per pixel = %3.1f muK ###" % noise_amplitude)
   # No T/P masks here --> To be loaded in observations module
 
@@ -267,7 +271,7 @@ def _mock_anisotropic_noise_covariance_generator(nside, lmax, noise_amplitude):
 
   return noise_sim, D_pix, C_harmonic
 
-def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=False, noise_amplitude=100, maskname=None, beamname=None):
+def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=False, noise_amplitude=100, EB_only=False, maskname=None, beamname=None):
   """
   Simulates a polarized CMB map
   IMPORTANT: Changing nside & lmax will respectively require rebuilding of mask & beam, respectively
@@ -277,7 +281,7 @@ def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=
 
   # Read the cls from CAMB (.dat)
   # DKR -> usual format, GL -> more clever format
-  cls, Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", lmax)
+  cls, Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", lmax, EB_only)
 
   # Generate a polarized CMB map from CAMB spectra
   alms = hp.synalm(tuple(cls), new=True) # "new" format for cls ordering
@@ -329,7 +333,7 @@ def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=
     np.savez("anisotropic_noise_covariance.npz", Cov_D_pix=Cov_D_pix, Cov_C_harmonic=Cov_C_harmonic) 
   else:
     print("### Generating white noise ###")
-    noise_IQU, Cov_N = _mock_noise_covariance_generator(npix, noise_amplitude)
+    noise_IQU, Cov_N = _mock_noise_covariance_generator(npix, noise_amplitude, EB_only)
     # Save white noise covariance
     np.savez("noise_covariance.npz", Cov_N=Cov_N) 
   if beamed:

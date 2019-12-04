@@ -77,7 +77,7 @@ def GL_read_camb_cl(fname, lmax):
      
   return cls
 
-def DKR_read_camb_cl(fname, lmax):
+def DKR_read_camb_cl(fname, lmax, EB_only=False):
   """
   Read a .dat file from CAMB and return the cls
   cls -> different format to GL version
@@ -85,10 +85,13 @@ def DKR_read_camb_cl(fname, lmax):
   camb_data = np.loadtxt(fname)
   llp1     = np.arange(lmax + 1)*(1+np.arange(lmax + 1)) / (2.0*np.pi)
   cls       = np.zeros([6, lmax+1])
-  cls[0,2:] = camb_data[:lmax-1,1] / llp1[2:] #TT
+
   cls[1,2:] = camb_data[:lmax-1,2] / llp1[2:] #EE
-  cls[2,2:] = camb_data[:lmax-1,3] / llp1[2:] #BB
-  cls[3,2:] = camb_data[:lmax-1,4] / llp1[2:] #TE
+  cls[2,2:] = camb_data[:lmax-1,3] / llp1[2:] #BB    
+
+  if not EB_only:
+    cls[0,2:] = camb_data[:lmax-1,1] / llp1[2:] #TT
+    cls[3,2:] = camb_data[:lmax-1,4] / llp1[2:] #TE
 
   # Construct Cov_S (correct array structure)
   Cov_S = np.zeros([lmax + 1, 3, 3])
