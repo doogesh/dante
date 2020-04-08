@@ -655,7 +655,7 @@ class DualMessenger(WienerFilter):
 ##                     CLASSIC FILTER                     ##
 ############################################################
 
-  def run_classic_filter(self, convergence='norm', precision=10**-4, cooling_step=2.5, l_start=100, relaxed_convergence_threshold=False, store_steps=False, jacobi_correction=False, constrained_realizations=False, compute_chi2=False, compute_residual=False, EB_only=False):
+  def run_classic_filter(self, convergence='norm', precision=10**-4, cooling_step=2.5, l_start=100, relaxed_convergence_threshold=False, store_steps=False, jacobi_correction=False, constrained_realizations=False, compute_chi2=False, compute_residual=False, EB_only=False, Cov_S_provided=None):
     """
     Run the dual messenger algorithm to the given precision
     ***This is the main function that calls all preliminaries & initializes all constant coefficients***
@@ -676,7 +676,11 @@ class DualMessenger(WienerFilter):
     else:
       print(P+"*** E/B only mode deactivated             ***"+W)
 
-    _, self.Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", self.lmax, EB_only)
+    if Cov_S_provided is not None:
+      self.Cov_S = np.load(Cov_S_provided)["Cov_S"]
+    else:
+      _, self.Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", self.lmax, EB_only)
+
     if self.EB_only:
       Cov_S_diag = np.zeros((self.lmax+1,3))
       for i in range(3):
