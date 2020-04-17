@@ -41,6 +41,46 @@ class DualMessenger(WienerFilter):
     v_trunk = Cov_S_interp(l_start)
     return v_trunk
 
+  def compute_inv_N_bar_EB_only(self): ## FIXME: New function
+
+    d_pix = self.d_pixel.copy()
+
+    Cov_N_diag = np.zeros([3, d_pix[0].size])
+    for k in range(3):
+      Cov_N_diag[k,:] = self.Cov_N[:,k,k]
+
+    alpha = np.min(Cov_N_diag[np.where(Cov_N_diag!=0)])*1.0 # Re-scale T slightly to avoid trouble
+
+    self.alpha = alpha 
+    self.inv_alpha = 1./alpha
+    self.Cov_T = np.ones(3)*alpha
+    self.inv_T = 1/self.Cov_T
+    print("alpha =")
+    print(alpha)
+    print("### Computation of Cov_T terminated     ###")  
+
+    Cov_N_bar = Cov_N_diag - self.alpha
+    inv_N_bar_ = 1./Cov_N_bar
+    inv_N_bar_[np.where(Cov_N_bar==0)] = 0
+
+    inv_N_bar = np.zeros([d_pix[0].size, 3, 3])
+    for k in range(3):
+      inv_N_bar[:,k,k] = inv_N_bar_[k,:]
+
+    self.inv_N_bar = inv_N_bar
+
+    inv_N_bar_plus_inv_T = inv_N_bar_ + self.inv_alpha
+    inv_inv_N_bar_plus_inv_T_ = 1./inv_N_bar_plus_inv_T
+    inv_inv_N_bar_plus_inv_T_[np.where(inv_N_bar_plus_inv_T==0)] = 0
+
+    inv_inv_N_bar_plus_inv_T = np.zeros([d_pix[0].size, 3, 3])
+
+    print(inv_inv_N_bar_plus_inv_T_.shape)
+    for k in range(3):
+      inv_inv_N_bar_plus_inv_T[:,k,k] = inv_inv_N_bar_plus_inv_T_[k,:]
+    
+    self.inv_inv_N_bar_plus_inv_T = inv_inv_N_bar_plus_inv_T
+
   def compute_inv_N_bar(self):
     """
     New & more general formalism for dealing with masks
@@ -85,6 +125,8 @@ class DualMessenger(WienerFilter):
     self.inv_alpha = 1./alpha
     self.Cov_T = np.ones(3)*alpha
     self.inv_T = 1/self.Cov_T
+    print("alpha =")
+    print(alpha)
     print("### Computation of Cov_T terminated     ###")  
 
     if self.compute_chi2: 
@@ -295,9 +337,13 @@ class DualMessenger(WienerFilter):
     t_harmonic = np.array(hp.map2alm(t, lmax=self.lmax, pol=True, iter=0))
     if self.beamed:
       t_harmonic = numba_almxfl_vec(t_harmonic, self.beam, self.lmax)
-    P_t = numba_almxfl_block(t_harmonic, self.operator_P, self.lmax)
-    alm_inter = numba_almxfl_vec(P_t, self.s_coeff, self.lmax)
-    alm = numba_almxfl_block(alm_inter, self.operator_P, self.lmax)
+
+    if self.EB_only:
+      alm = numba_almxfl_vec(t_harmonic, self.s_coeff, self.lmax)
+    else:
+      P_t = numba_almxfl_block(t_harmonic, self.operator_P, self.lmax)
+      alm_inter = numba_almxfl_vec(P_t, self.s_coeff, self.lmax)
+      alm = numba_almxfl_block(alm_inter, self.operator_P, self.lmax)
     if self.jacobi_correction:
       alm = jacobi_corrector(alm, self.lmax, self.NSIDE, self.operator_P, self.s_coeff, self.inv_S_bar_plus_v, self.alpha, self.inv_norm_coeff, beam_jacobi=self.beam) 
     return alm
@@ -739,7 +785,11 @@ class DualMessenger(WienerFilter):
 
     d_pix = self.d_pixel.copy()
 
-    self.compute_inv_N_bar()
+    if EB_only:
+      self.compute_inv_N_bar_EB_only()
+    else:
+      self.compute_inv_N_bar()
+
     inv_norm_coeff_times_T = self.inv_norm_coeff*self.Cov_T
     self.inv_N_bar_d = numba_array_manipulation_TypeA(self.inv_N_bar, d_pix)
     s = new_s(lmax, self.NPIX)
