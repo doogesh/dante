@@ -41,7 +41,7 @@ class DualMessenger(WienerFilter):
     v_trunk = Cov_S_interp(l_start)
     return v_trunk
 
-  def compute_inv_N_bar_EB_only(self): ## FIXME: New function
+  def compute_inv_N_bar_EB_only(self):
 
     d_pix = self.d_pixel.copy()
 
@@ -95,9 +95,6 @@ class DualMessenger(WienerFilter):
       sigma_IQU[:,i] = np.sqrt(np.diag(self.Cov_N[i,:,:]))
       inv_sigma_IQU[:,i] = 1./sigma_IQU[:,i]
 
-    if self.EB_only:
-      inv_sigma_IQU[0,:] = 0
-
     for i in range(d_pix[0].size):
       cholesky_matrix[i,:,:] = np.matrix(np.diag(inv_sigma_IQU[:,i]))*np.matrix(self.Cov_N[i,:,:])*np.matrix(np.diag(inv_sigma_IQU[:,i]))
 
@@ -108,16 +105,12 @@ class DualMessenger(WienerFilter):
  
     # Diagonalize Cov_N -> sole purpose: Compute Cov_T (evectors not relevant)
     Cov_N_diag = np.zeros([3, d_pix[0].size])
-    if not self.EB_only:
-      for i in range(d_pix[0].size):
-        Z = self.Cov_N[i,:,:]
-        evalues_Z, _ = np.linalg.eigh(Z)
-        Cov_N_diag[0,i] = evalues_Z[0] 
-        Cov_N_diag[1,i] = evalues_Z[1] 
-        Cov_N_diag[2,i] = evalues_Z[2]
-    else:
-      for k in range(3):
-        Cov_N_diag[k,:] = self.Cov_N[:,k,k]
+    for i in range(d_pix[0].size):
+      Z = self.Cov_N[i,:,:]
+      evalues_Z, _ = np.linalg.eigh(Z)
+      Cov_N_diag[0,i] = evalues_Z[0] 
+      Cov_N_diag[1,i] = evalues_Z[1] 
+      Cov_N_diag[2,i] = evalues_Z[2]
 
     alpha = np.min(Cov_N_diag[np.where(Cov_N_diag!=0)])*.98 # Re-scale T slightly to avoid trouble
 
@@ -177,13 +170,8 @@ class DualMessenger(WienerFilter):
       inter_delta_term[1,0] = inter_delta_term[0,1]
       inter_delta_term[2,0] = inter_delta_term[0,2]
       inter_delta_term[2,1] = inter_delta_term[1,2]
-      if self.EB_only:
-        inv_inter_delta_term = np.linalg.inv(inter_delta_term[1:,1:])
-        inv_N_bar[idx,:,:] = 0
-        inv_N_bar[idx,1:,1:] = np.matrix(inv_Sigma_Q_dag[idx,1:,1:])*np.matrix(inv_inter_delta_term)*np.matrix(Q_inv_Sigma[idx,1:,1:])
-      else:
-        inv_inter_delta_term = np.linalg.inv(inter_delta_term)
-        inv_N_bar[idx,:,:] = np.matrix(inv_Sigma_Q_dag[idx,:,:])*np.matrix(inv_inter_delta_term)*np.matrix(Q_inv_Sigma[idx,:,:])
+      inv_inter_delta_term = np.linalg.inv(inter_delta_term)
+      inv_N_bar[idx,:,:] = np.matrix(inv_Sigma_Q_dag[idx,:,:])*np.matrix(inv_inter_delta_term)*np.matrix(Q_inv_Sigma[idx,:,:])
       if self.compute_chi2: 
         inv_delta_diag = np.zeros((3,3))
         inv_delta_diag[0,0] = 1./delta1
