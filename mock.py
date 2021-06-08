@@ -57,7 +57,7 @@ def _mock_noise_covariance_generator(npix, noise_amplitude, EB_only):
   if EB_only:
     sigma_IQU[1:,:] = noise_amplitude # noise amplitude (per pixel) in muK
   else:
-    sigma_IQU[1:,:] = noise_amplitude # noise amplitude (per pixel) in muK
+    sigma_IQU[:,:] = noise_amplitude # noise amplitude (per pixel) in muK
 
   print("### Noise amplitude per pixel = %3.1f muK ###" % noise_amplitude)
   # No T/P masks here --> To be loaded in observations module
