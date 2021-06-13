@@ -354,13 +354,13 @@ def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=
     hp.write_map("mask_T_P.fits", mask, overwrite=True)
     print("### Mask saved successfully ###")
 
-def CR_reference_gen(nside, lmax, beam=None):
+def CR_reference_gen(nside, lmax, noise_amplitude_CR, EB_only, beam=None):
   """
   Generates a reference CMB map and data for (constrained realizations) CR purposes (stand-alone function)
   """
   npix = hp.nside2npix(nside)
   print("### Generating reference maps for CR purposes ###")
-  cls, _ = DKR_read_camb_cl("pol_data_boost_totCls.dat", lmax)  
+  cls, _ = DKR_read_camb_cl("pol_data_boost_totCls.dat", lmax, EB_only)  
 
   alms_ref = hp.synalm(tuple(cls), new=True)
   alms_ref_unbeamed = np.array(alms_ref).copy()
@@ -372,7 +372,7 @@ def CR_reference_gen(nside, lmax, beam=None):
   print("### Reference (prior) polarized CMB map generated successfully ###")
 
   # Generate reference data
-  noise_IQU, _ = _mock_noise_covariance_generator(npix)
+  noise_IQU, _ = _mock_noise_covariance_generator(npix, noise_amplitude_CR, EB_only)
   reference_data = reference_signal + noise_IQU
   print("### Reference CMB data generated successfully ###")
 
