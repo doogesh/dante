@@ -271,7 +271,7 @@ def _mock_anisotropic_noise_covariance_generator(nside, lmax, noise_amplitude):
 
   return noise_sim, D_pix, C_harmonic
 
-def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=False, noise_amplitude=100, EB_only=False, maskname=None, beamname=None):
+def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=False, noise_amplitude=100, CAMB_Cov_S_fname="pol_data_boost_totCls.dat", Cov_S_provided=None, EB_only=False, maskname=None, beamname=None):
   """
   Simulates a polarized CMB map
   IMPORTANT: Changing nside & lmax will respectively require rebuilding of mask & beam, respectively
@@ -279,9 +279,19 @@ def mock_gen(nside=128, lmax=256, masked=False, beamed=False, anisotropic_noise=
   print("### Generating mock CMB data ###")
   npix = hp.nside2npix(nside)
 
-  # Read the cls from CAMB (.dat)
-  # DKR -> usual format, GL -> more clever format
-  cls, Cov_S = DKR_read_camb_cl("pol_data_boost_totCls.dat", lmax, EB_only)
+  if Cov_S_provided is not None:
+    Cov_S = np.load(Cov_S_provided)["Cov_S"]
+    cls = np.zeros([6, lmax+1])
+    for ell in range(lmax + 1):
+      cls[0,ell] = Cov_S_provided[ell,0,0]
+      cls[1,ell] = Cov_S_provided[ell,1,1]
+      cls[2,ell] = Cov_S_provided[ell,2,2]
+      cls[3,ell] = Cov_S_provided[ell,0,1]
+      cls[3,ell] = Cov_S_provided[ell,1,0]
+  else:
+    # Read the cls from CAMB (.dat)
+    # DKR -> usual format, GL -> more clever format
+    cls, Cov_S = DKR_read_camb_cl(CAMB_Cov_S_fname, lmax, EB_only)
 
   # Generate a polarized CMB map from CAMB spectra
   alms = hp.synalm(tuple(cls), new=True) # "new" format for cls ordering
